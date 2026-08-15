@@ -1,5 +1,7 @@
 # DeepSeek Harness 登录门禁插件 (auth-gate)
 
+**简体中文** | [English](README.en.md)
+
 一个为 DeepSeek Harness Web 界面提供登录门禁 + 账号管理的插件 bundle。
 
 ## 预览
