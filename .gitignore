@@ -1,0 +1,5 @@
+# Local account data written by the plugin at runtime.
+login-gate-accounts.json
+*.tmp
+.DS_Store
+node_modules/

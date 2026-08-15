@@ -1,0 +1,23 @@
+{
+  "name": "@dsh-login-gate/auth-gate",
+  "version": "1.0.0",
+  "description": "Login gate + account settings for the DeepSeek Harness web UI. Host persists account/password (scrypt-hashed) to disk; browser adds a login overlay and an account-settings section.",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./dsh/index.js",
+    "./dsh": "./dsh/index.js",
+    "./client": "./dsh/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [],
+      "platform": "web",
+      "immediately": true
+    }
+  }
+}

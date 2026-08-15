@@ -1,0 +1,4 @@
+# dsh bundle layer: mount the login-gate plugin (host half row + client half).
+- insert:
+    - id: login-gate
+      name: '@dsh-login-gate/auth-gate'
