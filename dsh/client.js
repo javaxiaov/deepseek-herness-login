@@ -21,6 +21,145 @@ window.__ModuleLoader__.load({
     var React = require('react')
     var ReactDom = require('react-dom')
 
+    // ---- localization ------------------------------------------------------
+    // Dictionaries for the login gate and account-settings UI, keyed by
+    // locale id. The active locale is read from the shell's `locale` service
+    // (registered in apply); `t(key)` resolves through the current locale and
+    // falls back to zh so a missing translation never blanks the UI.
+    var dicts = {
+      zh: {
+        'gate.title': 'DeepSeek Harness',
+        'gate.subtitle': '登录后即可进入工作区',
+        'gate.checking': '正在验证登录状态…',
+        'gate.username': '账号',
+        'gate.username.placeholder': '请输入账号',
+        'gate.password': '密码',
+        'gate.password.placeholder': '请输入密码',
+        'gate.login': '登 录',
+        'gate.loginBusy': '登录中…',
+        'gate.loginFailed': '登录失败',
+        'gate.timeout': '请求超时，请重试',
+        'gate.network': '无法连接服务，请稍后重试',
+        'nav.account': '账号设置',
+        'acct.title': '账号设置',
+        'acct.desc': '修改登录账号与密码，保存后立即生效。默认账号为 admin / admin123。',
+        'acct.username': '账号名',
+        'acct.username.placeholder': '新账号名',
+        'acct.currentPassword': '当前密码',
+        'acct.currentPassword.placeholder': '请输入当前密码以确认修改',
+        'acct.newPassword': '新密码（留空则不修改）',
+        'acct.newPassword.placeholder': '至少 4 位',
+        'acct.confirmPassword': '确认新密码',
+        'acct.confirmPassword.placeholder': '再次输入新密码',
+        'acct.currentPasswordRequired': '请输入当前密码',
+        'acct.passwordMismatch': '两次输入的新密码不一致',
+        'acct.saved': '账号设置已保存（当前账号：{username}）',
+        'acct.saveFailed': '修改失败',
+        'acct.save': '保存修改',
+        'acct.saving': '保存中…',
+        'logout': '退出登录',
+        'err.missing-credentials': '请输入账号和密码',
+        'err.bad-credentials': '账号或密码错误',
+        'err.session-expired': '会话已失效，请重新登录',
+        'err.wrong-current-password': '当前密码不正确',
+        'err.password-too-short': '新密码至少需要 4 位',
+        'err.nothing-to-save': '没有需要保存的修改',
+        'err.server-error': '服务器错误，请稍后重试',
+      },
+      en: {
+        'gate.title': 'DeepSeek Harness',
+        'gate.subtitle': 'Sign in to enter the workspace',
+        'gate.checking': 'Verifying sign-in status…',
+        'gate.username': 'Username',
+        'gate.username.placeholder': 'Enter username',
+        'gate.password': 'Password',
+        'gate.password.placeholder': 'Enter password',
+        'gate.login': 'Sign In',
+        'gate.loginBusy': 'Signing in…',
+        'gate.loginFailed': 'Sign-in failed',
+        'gate.timeout': 'Request timed out, please retry',
+        'gate.network': 'Cannot reach the service, please retry',
+        'nav.account': 'Account Settings',
+        'acct.title': 'Account Settings',
+        'acct.desc': 'Change the sign-in username and password; changes apply immediately. Default account is admin / admin123.',
+        'acct.username': 'Username',
+        'acct.username.placeholder': 'New username',
+        'acct.currentPassword': 'Current password',
+        'acct.currentPassword.placeholder': 'Enter your current password to confirm',
+        'acct.newPassword': 'New password (leave empty to keep)',
+        'acct.newPassword.placeholder': 'At least 4 characters',
+        'acct.confirmPassword': 'Confirm new password',
+        'acct.confirmPassword.placeholder': 'Enter the new password again',
+        'acct.currentPasswordRequired': 'Please enter your current password',
+        'acct.passwordMismatch': 'The two new passwords do not match',
+        'acct.saved': 'Account settings saved (current account: {username})',
+        'acct.saveFailed': 'Update failed',
+        'acct.save': 'Save Changes',
+        'acct.saving': 'Saving…',
+        'logout': 'Log out',
+        'err.missing-credentials': 'Please enter a username and password',
+        'err.bad-credentials': 'Incorrect username or password',
+        'err.session-expired': 'Session expired, please sign in again',
+        'err.wrong-current-password': 'The current password is incorrect',
+        'err.password-too-short': 'The new password must be at least 4 characters',
+        'err.nothing-to-save': 'Nothing to save',
+        'err.server-error': 'Server error, please try again later',
+      },
+    }
+
+    var localeService = null
+    var localeIds = ['zh', 'en']
+    var activeLocale = 'zh'
+    var localeListeners = []
+    function emitLocale() {
+      for (var i = 0; i < localeListeners.length; i++) {
+        try { localeListeners[i]() } catch (e) { /* dead listener */ }
+      }
+    }
+    function setActiveLocale(id) {
+      if (id !== activeLocale && localeIds.indexOf(id) >= 0) {
+        activeLocale = id
+        emitLocale()
+      }
+    }
+    // t(key, params) reads the active locale at call time; falls back to zh.
+    function t(key, params) {
+      var text = (dicts[activeLocale] && dicts[activeLocale][key]) ||
+        (dicts.zh && dicts.zh[key]) ||
+        key
+      if (params) {
+        Object.keys(params).forEach(function (k) {
+          text = text.split('{' + k + '}').join(String(params[k]))
+        })
+      }
+      return text
+    }
+    // useLocale() subscribes the component to locale changes so translated
+    // text re-renders when the user switches language.
+    function useLocale() {
+      var tick = React.useState(0)[1]
+      React.useEffect(function () {
+        function listener() { tick(function (v) { return v + 1 }) }
+        localeListeners.push(listener)
+        return function () {
+          var i = localeListeners.indexOf(listener)
+          if (i >= 0) localeListeners.splice(i, 1)
+        }
+      }, [])
+      return activeLocale
+    }
+    // Translate a host error response ({ code, error }) into the active
+    // locale. Unknown codes fall back to the server-provided text.
+    function translateError(res, fallbackKey) {
+      if (res && res.code && dicts[activeLocale] && dicts[activeLocale]['err.' + res.code]) {
+        return t('err.' + res.code)
+      }
+      if (res && res.error && typeof res.error === 'string' && !/^err\./.test(res.error)) {
+        return res.error
+      }
+      return t(fallbackKey)
+    }
+
     // ---- persisted login state ------------------------------------------------
     // A valid `token` kept in localStorage marks the user as logged in. The
     // token is server-side state (the host writes it to the account file), so
@@ -163,9 +302,9 @@ window.__ModuleLoader__.load({
           setStore({ status: 'in', token: res.token, username: res.username })
           return { ok: true }
         }
-        return { ok: false, error: (res && res.error) || '登录失败' }
+        return { ok: false, error: translateError(res, 'gate.loginFailed') }
       }).catch(function () {
-        return { ok: false, error: '无法连接服务，请稍后重试' }
+        return { ok: false, error: t('gate.network') }
       })
     }
 
@@ -194,9 +333,9 @@ window.__ModuleLoader__.load({
           setStore({ username: res.username })
           return { ok: true, username: res.username }
         }
-        return { ok: false, error: (res && res.error) || '修改失败' }
+        return { ok: false, error: translateError(res, 'acct.saveFailed') }
       }).catch(function () {
-        return { ok: false, error: '无法连接服务，请稍后重试' }
+        return { ok: false, error: t('gate.network') }
       })
     }
 
@@ -216,6 +355,7 @@ window.__ModuleLoader__.load({
     // ---- React components ------------------------------------------------------
     function LoginGate() {
       var auth = useAuth()
+      useLocale() // re-render on language switch
 
       var usernameState = React.useState('')
       var username = usernameState[0]
@@ -241,7 +381,7 @@ window.__ModuleLoader__.load({
         return ReactDom.createPortal(
           React.createElement('div', { className: 'dshlg-backdrop' },
             React.createElement('div', { className: 'dshlg-card' },
-              React.createElement('p', { className: 'dshlg-hint' }, '正在验证登录状态…'),
+              React.createElement('p', { className: 'dshlg-hint' }, t('gate.checking')),
             ),
           ),
           body,
@@ -258,7 +398,7 @@ window.__ModuleLoader__.load({
           // covers the case where the surrounding shell defers that unmount.
           setBusy(false)
           if (!res.ok) {
-            setError(res.error || '登录失败')
+            setError(res.error || t('gate.loginFailed'))
           }
         })
       }
@@ -266,28 +406,28 @@ window.__ModuleLoader__.load({
       return ReactDom.createPortal(
         React.createElement('div', { className: 'dshlg-backdrop' },
           React.createElement('div', { className: 'dshlg-card' },
-            React.createElement('h1', { className: 'dshlg-title' }, 'DeepSeek Harness'),
-            React.createElement('p', { className: 'dshlg-sub' }, '登录后即可进入工作区'),
-            React.createElement('label', { className: 'dshlg-label' }, '账号'),
+            React.createElement('h1', { className: 'dshlg-title' }, t('gate.title')),
+            React.createElement('p', { className: 'dshlg-sub' }, t('gate.subtitle')),
+            React.createElement('label', { className: 'dshlg-label' }, t('gate.username')),
             React.createElement('input', {
               className: 'dshlg-input',
               value: username,
-              placeholder: '请输入账号',
+              placeholder: t('gate.username.placeholder'),
               autoFocus: true,
               onChange: function (e) { setUsername(e.target.value) },
             }),
-            React.createElement('label', { className: 'dshlg-label' }, '密码'),
+            React.createElement('label', { className: 'dshlg-label' }, t('gate.password')),
             React.createElement('input', {
               className: 'dshlg-input',
               type: 'password',
               value: password,
-              placeholder: '请输入密码',
+              placeholder: t('gate.password.placeholder'),
               onChange: function (e) { setPassword(e.target.value) },
               onKeyDown: function (e) { if (e.key === 'Enter' && !busy) onSubmit() },
             }),
             error ? React.createElement('p', { className: 'dshlg-error' }, error) : null,
             React.createElement('button', { className: 'dshlg-btn', disabled: busy, onClick: onSubmit },
-              busy ? '登录中…' : '登 录'),
+              busy ? t('gate.loginBusy') : t('gate.login')),
           ),
         ),
         body,
@@ -296,6 +436,7 @@ window.__ModuleLoader__.load({
 
     function AccountSettings(props) {
       var auth = useAuth()
+      useLocale() // re-render on language switch
 
       var currentPasswordState = React.useState('')
       var currentPassword = currentPasswordState[0]
@@ -322,65 +463,64 @@ window.__ModuleLoader__.load({
       var onSave = function () {
         setMsg('')
         setErr('')
-        if (!currentPassword) { setErr('请输入当前密码'); return }
+        if (!currentPassword) { setErr(t('acct.currentPasswordRequired')); return }
         if (newPassword && newPassword !== confirmPassword) {
-          setErr('两次输入的新密码不一致')
+          setErr(t('acct.passwordMismatch'))
           return
         }
         setBusy(true)
         updateAccount(currentPassword, newUsername, newPassword).then(function (res) {
           setBusy(false)
           if (res.ok) {
-            setMsg('账号设置已保存（当前账号：' + res.username + '）')
+            setMsg(t('acct.saved', { username: res.username }))
             setCurrentPassword('')
             setNewPassword('')
             setConfirmPassword('')
           } else {
-            setErr(res.error || '修改失败')
+            setErr(res.error || t('acct.saveFailed'))
           }
         })
       }
 
       return React.createElement('div', { className: 'dshac' },
-        React.createElement('h2', { className: 'dshac-title' }, '账号设置'),
-        React.createElement('p', { className: 'dshac-desc' },
-          '修改登录账号与密码，保存后立即生效。默认账号为 admin / admin123。'),
-        React.createElement('label', { className: 'dshac-label' }, '账号名'),
+        React.createElement('h2', { className: 'dshac-title' }, t('acct.title')),
+        React.createElement('p', { className: 'dshac-desc' }, t('acct.desc')),
+        React.createElement('label', { className: 'dshac-label' }, t('acct.username')),
         React.createElement('input', {
           className: 'dshac-input',
           value: newUsername,
-          placeholder: '新账号名',
+          placeholder: t('acct.username.placeholder'),
           onChange: function (e) { setNewUsername(e.target.value) },
         }),
-        React.createElement('label', { className: 'dshac-label' }, '当前密码'),
+        React.createElement('label', { className: 'dshac-label' }, t('acct.currentPassword')),
         React.createElement('input', {
           className: 'dshac-input',
           type: 'password',
           value: currentPassword,
-          placeholder: '请输入当前密码以确认修改',
+          placeholder: t('acct.currentPassword.placeholder'),
           onChange: function (e) { setCurrentPassword(e.target.value) },
         }),
-        React.createElement('label', { className: 'dshac-label' }, '新密码（留空则不修改）'),
+        React.createElement('label', { className: 'dshac-label' }, t('acct.newPassword')),
         React.createElement('input', {
           className: 'dshac-input',
           type: 'password',
           value: newPassword,
-          placeholder: '至少 4 位',
+          placeholder: t('acct.newPassword.placeholder'),
           onChange: function (e) { setNewPassword(e.target.value) },
         }),
-        React.createElement('label', { className: 'dshac-label' }, '确认新密码'),
+        React.createElement('label', { className: 'dshac-label' }, t('acct.confirmPassword')),
         React.createElement('input', {
           className: 'dshac-input',
           type: 'password',
           value: confirmPassword,
-          placeholder: '再次输入新密码',
+          placeholder: t('acct.confirmPassword.placeholder'),
           onChange: function (e) { setConfirmPassword(e.target.value) },
         }),
         msg ? React.createElement('p', { className: 'dshac-msg' }, msg) : null,
         err ? React.createElement('p', { className: 'dshac-err' }, err) : null,
         React.createElement('div', { className: 'dshac-row' },
           React.createElement('button', { className: 'dshac-save', disabled: busy, onClick: onSave },
-            busy ? '保存中…' : '保存修改'),
+            busy ? t('acct.saving') : t('acct.save')),
           React.createElement('button', {
             className: 'dshac-logout',
             onClick: function () {
@@ -391,7 +531,7 @@ window.__ModuleLoader__.load({
               }
               logout()
             },
-          }, '退出登录'),
+          }, t('logout')),
         ),
       )
     }
@@ -432,14 +572,34 @@ window.__ModuleLoader__.load({
 
     // The loader invokes the exported `apply`, so registration and boot go here.
     function pluginApply(ctx) {
-      // Settings header action: a prominent red 退出登录 visible from any
+      // Localization: register our dictionaries with the shell locale service
+      // and keep `activeLocale` in sync so t() and useLocale() follow the
+      // shell's language preference (Settings → Appearance → Language).
+      var locale = ctx.get ? (ctx.get('locale') || ctx.locale) : ctx.locale
+      if (locale) {
+        ctx.effect(function () {
+          var disposers = []
+          try { disposers.push(locale.register('login-gate', dicts)) } catch (e) { /* ns may already exist */ }
+          var sync = function () {
+            var snap = locale.getSnapshot ? locale.getSnapshot() : null
+            if (snap && snap.active) setActiveLocale(snap.active)
+          }
+          sync()
+          disposers.push(locale.subscribe(sync))
+          return function () {
+            disposers.forEach(function (d) { try { d() } catch (e) { /* already disposed */ } })
+          }
+        })
+      }
+      // Settings header action: a prominent red logout visible from any
       // settings page. It only logs the account out (never the app); the gate
       // re-appears at body level and covers the still-open panel.
       var SettingsLogoutAction = function () {
+        useLocale() // re-render on language switch
         return React.createElement('button', {
           className: 'dshlg-settings-logout',
           onClick: function () { logout() },
-        }, '退出登录')
+        }, t('logout'))
       }
 
       ctx.effect(function () {
@@ -457,7 +617,7 @@ window.__ModuleLoader__.load({
         // Account settings section: change username/password and log out.
         disposes.push(slots.inject('settings.section', function () {
           return slots.register(
-            { name: 'settings.section', id: 'account', order: 30, label: '账号设置' },
+            { name: 'settings.section', id: 'account', order: 30, label: function () { return t('nav.account') } },
             function (props) { return React.createElement(AccountSettings, props) },
           )
         }))
@@ -478,7 +638,7 @@ window.__ModuleLoader__.load({
     }
 
     exports.apply = pluginApply
-    exports.inject = ['slots']
+    exports.inject = ['slots', 'locale']
 
     return module.exports
   },

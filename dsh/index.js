@@ -16,9 +16,12 @@ export const inject = ['webServer']
 
 const OK = 'application/json'
 
-function sendError(res, code, message) {
-  res.writeHead(code, { 'content-type': OK })
-  res.end(JSON.stringify({ ok: false, error: message }))
+// sendError carries a stable `code` (not localized text): the browser half
+// translates codes into the active locale, so one response serves both
+// languages.
+function sendError(res, httpCode, code, fallback) {
+  res.writeHead(httpCode, { 'content-type': OK })
+  res.end(JSON.stringify({ ok: false, code: code, error: fallback || code }))
 }
 function sendOk(res, payload = {}) {
   res.writeHead(200, { 'content-type': OK })
@@ -64,7 +67,7 @@ export function apply(ctx) {
           try {
             await handler(req, res)
           } catch (error) {
-            sendError(res, 500, error && error.message ? error.message : 'server error')
+            sendError(res, 500, 'server-error', error && error.message ? error.message : 'server error')
           }
         },
       }),
@@ -86,7 +89,7 @@ export function apply(ctx) {
     const username = payload && payload.username
     const password = payload && payload.password
     if (typeof username !== 'string' || typeof password !== 'string') {
-      sendError(res, 400, '请输入账号和密码')
+      sendError(res, 400, 'missing-credentials')
       return
     }
     const account = getAccount()
@@ -96,7 +99,7 @@ export function apply(ctx) {
       sendOk(res, { token, username: account.username })
       return
     }
-    sendError(res, 401, '账号或密码错误')
+    sendError(res, 401, 'bad-credentials')
   })
 
   // POST /login-gate/logout -> clears the session (idempotent)
@@ -115,12 +118,12 @@ export function apply(ctx) {
     const token = payload && payload.token
     const account = getAccount()
     if (token !== account.sessionToken) {
-      sendError(res, 401, '会话已失效，请重新登录')
+      sendError(res, 401, 'session-expired')
       return
     }
     const currentPassword = payload && payload.currentPassword
     if (!verifyPassword(currentPassword, account.password)) {
-      sendError(res, 401, '当前密码不正确')
+      sendError(res, 401, 'wrong-current-password')
       return
     }
     const next = { ...account, sessionToken: token }
@@ -133,14 +136,14 @@ export function apply(ctx) {
     const newPassword = payload && payload.newPassword
     if (typeof newPassword === 'string' && newPassword.length > 0) {
       if (newPassword.length < 4) {
-        sendError(res, 400, '新密码至少需要 4 位')
+        sendError(res, 400, 'password-too-short')
         return
       }
       next.password = hashPassword(newPassword)
       changed = true
     }
     if (!changed) {
-      sendError(res, 400, '没有需要保存的修改')
+      sendError(res, 400, 'nothing-to-save')
       return
     }
     const saved = setAccount(next)
