@@ -44,6 +44,22 @@ window.__ModuleLoader__.load({
     }
 
     // ---- host RPC --------------------------------------------------------
+    // A stalled request must surface as an error (and release the login
+    // button's busy state) instead of hanging forever. Timeout via a plain
+    // Promise race on setTimeout — browser-native and present in every
+    // Chromium; nothing exotic like AbortSignal.timeout is assumed.
+    function withTimeout(promise, ms) {
+      var timer = null
+      var timeout = new Promise(function (resolve) {
+        timer = setTimeout(function () {
+          resolve({ _status: 0, ok: false, error: '请求超时，请重试' })
+        }, ms)
+      })
+      return Promise.race([promise, timeout]).then(function (value) {
+        if (timer) clearTimeout(timer)
+        return value
+      })
+    }
     function apiGet(path, params) {
       var url = path
       if (params) {
@@ -51,18 +67,32 @@ window.__ModuleLoader__.load({
           return encodeURIComponent(k) + '=' + encodeURIComponent(params[k])
         }).join('&')
       }
-      return fetch(url).then(function (res) {
-        return res.json().then(function (j) { j._status = res.status; return j })
-      })
+      try {
+        return withTimeout(
+          fetch(url).then(function (res) {
+            return res.json().then(function (j) { j._status = res.status; return j })
+          }),
+          10000,
+        )
+      } catch (e) {
+        return Promise.resolve({ _status: 0, ok: false, error: '无法连接服务' })
+      }
     }
     function apiPost(path, payload) {
-      return fetch(path, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload || {}),
-      }).then(function (res) {
-        return res.json().then(function (j) { j._status = res.status; return j })
-      })
+      try {
+        return withTimeout(
+          fetch(path, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload || {}),
+          }).then(function (res) {
+            return res.json().then(function (j) { j._status = res.status; return j })
+          }),
+          10000,
+        )
+      } catch (e) {
+        return Promise.resolve({ _status: 0, ok: false, error: '无法连接服务' })
+      }
     }
 
     // ---- shared auth store ------------------------------------------------
@@ -125,7 +155,9 @@ window.__ModuleLoader__.load({
     }
 
     function login(username, password) {
-      return apiPost('/login-gate/login', { username: username, password: password }).then(function (res) {
+      return Promise.resolve().then(function () {
+        return apiPost('/login-gate/login', { username: username, password: password })
+      }).then(function (res) {
         if (res && res.ok) {
           writeSession({ token: res.token, username: res.username })
           setStore({ status: 'in', token: res.token, username: res.username })
@@ -139,17 +171,23 @@ window.__ModuleLoader__.load({
 
     function logout() {
       var token = store.token
-      if (token) apiPost('/login-gate/logout', { token: token }).catch(function () {})
+      if (token) {
+        Promise.resolve().then(function () {
+          return apiPost('/login-gate/logout', { token: token })
+        }).catch(function () {})
+      }
       writeSession(null)
       setStore({ status: 'out', token: null, username: null })
     }
 
     function updateAccount(currentPassword, newUsername, newPassword) {
-      return apiPost('/login-gate/update', {
-        token: store.token,
-        currentPassword: currentPassword,
-        newUsername: newUsername,
-        newPassword: newPassword,
+      return Promise.resolve().then(function () {
+        return apiPost('/login-gate/update', {
+          token: store.token,
+          currentPassword: currentPassword,
+          newUsername: newUsername,
+          newPassword: newPassword,
+        })
       }).then(function (res) {
         if (res && res.ok) {
           writeSession({ token: store.token, username: res.username })
@@ -215,9 +253,12 @@ window.__ModuleLoader__.load({
         setBusy(true)
         setError('')
         login(username, password).then(function (res) {
+          // Always clear the busy flag, success or failure. On success the
+          // store flips to 'in' and the gate unmounts; clearing busy here also
+          // covers the case where the surrounding shell defers that unmount.
+          setBusy(false)
           if (!res.ok) {
             setError(res.error || '登录失败')
-            setBusy(false)
           }
         })
       }
