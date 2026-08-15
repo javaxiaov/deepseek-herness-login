@@ -549,7 +549,7 @@ window.__ModuleLoader__.load({
         '.dshlg-input:focus{border-color:var(--dsw-alias-brand-primary,#2563eb);}' +
         '.dshlg-error{margin:12px 0 0;font-size:13px;color:var(--dsw-alias-state-error-primary,#dc2626);}' +
         '.dshlg-hint{margin:0;font-size:13px;color:var(--dsw-alias-label-secondary,#666);}' +
-        '.dshlg-btn{width:100%;margin-top:18px;padding:10px 0;border:none;border-radius:8px;background:var(--dsw-alias-brand-primary,#2563eb);color:#fff;font-size:15px;cursor:pointer;}' +
+        '.dshlg-btn{width:100%;margin-top:18px;padding:10px 0;border:none;border-radius:8px;background:var(--dsw-alias-brand-primary,#2563eb);color:var(--dsw-alias-brand-text,#fff);font-size:15px;cursor:pointer;}' +
         '.dshlg-btn:disabled{opacity:.6;cursor:default;}' +
         '.dshac{padding:4px 0 20px;text-align:left;}' +
         '.dshac-title{margin:0 0 6px;font-size:16px;color:var(--dsw-alias-label-primary,#111);}' +
@@ -561,12 +561,12 @@ window.__ModuleLoader__.load({
         '.dshac-err{margin:12px 0 0;font-size:13px;color:var(--dsw-alias-state-error-primary,#dc2626);}' +
         '.dshac-row{display:flex;gap:10px;margin-top:18px;}' +
         '.dshac-save,.dshac-logout{padding:9px 18px;border-radius:8px;font-size:14px;cursor:pointer;border:1px solid var(--dsw-alias-border-l2,#ccc);}' +
-        '.dshac-save{background:var(--dsw-alias-brand-primary,#2563eb);color:#fff;border-color:transparent;}' +
+        '.dshac-save{background:var(--dsw-alias-brand-primary,#2563eb);color:var(--dsw-alias-brand-text,#fff);border-color:transparent;}' +
         '.dshac-save:disabled{opacity:.6;cursor:default;}' +
         '.dshac-logout{background:transparent;color:var(--dsw-alias-state-error-primary,#dc2626);}' +
         '.dshac-logout:hover{text-decoration:underline;}' +
         '.dshlg-settings-logout{background:transparent;border:1px solid var(--dsw-alias-state-error-primary,#dc2626);color:var(--dsw-alias-state-error-primary,#dc2626);padding:5px 12px;border-radius:8px;font-size:13px;cursor:pointer;}' +
-        '.dshlg-settings-logout:hover{background:var(--dsw-alias-state-error-primary,#dc2626);color:#fff;}'
+        '.dshlg-settings-logout:hover{background:var(--dsw-alias-state-error-primary,#dc2626);color:var(--dsw-alias-brand-text,#fff);}'
       document.head.appendChild(style)
     })()
 
